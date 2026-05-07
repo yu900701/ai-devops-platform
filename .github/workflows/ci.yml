@@ -34,4 +34,4 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          docker build -f docker/app.Dockerfile -t ai-devops-app:v1 .
+          docker build -f docker/app.Dockerfile -t ai-devops-app:v${{ github.sha }} .
