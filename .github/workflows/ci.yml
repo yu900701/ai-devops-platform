@@ -63,13 +63,13 @@ jobs:
       - name: Update GitOps Image Tag
         run: |
           cd gitops-repo
-          sed -i "s|image: ghcr.io/${{ github.repository_owner }}/ai-devops-app:.*|image: ghcr.io/${{ github.repository_owner }}/ai-devops-app:${IMAGE_TAG}|g" apps/deployment.yaml
+          sed -i "s|image: ghcr.io/${{ github.repository_owner }}/ai-devops-app:.*|image: ghcr.io/${{ github.repository_owner }}/ai-devops-app:${IMAGE_TAG}|g" apps/app-deployment.yaml
 
       - name: Commit and Push GitOps Update
         run: |
           cd gitops-repo
           git config user.name "yu900701"
           git config user.email "kd123456525@gmail.com"
-          git add apps/deployment.yaml
+          git add apps/app-deployment.yaml
           git commit -m "update ai-devops-app image to ${IMAGE_TAG}" || echo "No changes to commit"
           git push
