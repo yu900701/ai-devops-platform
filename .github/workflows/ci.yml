@@ -10,13 +10,17 @@ on:
       - main
 
 jobs:
-  test-and-build:
+   test-build-push-update-gitops:
 
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      packages: write
+
     steps:
 
-      - name: Checkout Repository
+      - name: Checkout APP Repository
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -32,6 +36,40 @@ jobs:
         run: |
           pytest
 
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Set Image Tag
+        run: |
+          echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
       - name: Build Docker Image
         run: |
-          docker build -f docker/app.Dockerfile -t ai-devops-app:v${{ github.sha }} .
+          docker build -f docker/app.Dockerfile \
+            -t ghcr.io/${{ github.repository_owner }}/ai-devops-app:${IMAGE_TAG} .
+
+      - name: Push Docker Image
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/ai-devops-app:${IMAGE_TAG}
+
+      - name: Checkout GitOps Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/ai-devops-platform-gitops
+          token: ${{ secrets.GHCR_TOKEN }}
+          path: gitops-repo
+
+      - name: Update GitOps Image Tag
+        run: |
+          cd gitops-repo
+          sed -i "s|image: ghcr.io/${{ github.repository_owner }}/ai-devops-app:.*|image: ghcr.io/${{ github.repository_owner }}/ai-devops-app:${IMAGE_TAG}|g" apps/ai-devops-app/deployment.yaml
+
+      - name: Commit and Push GitOps Update
+        run: |
+          cd gitops-repo
+          git config user.name "yu900701"
+          git config user.email "kd123456525@gmail.com"
+          git add apps/ai-devops-app/deployment.yaml
+          git commit -m "update ai-devops-app image to ${IMAGE_TAG}" || echo "No changes to commit"
+          git push
