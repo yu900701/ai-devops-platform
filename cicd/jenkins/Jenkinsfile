@@ -27,7 +27,13 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
-                    ./venv/bin/pytest
+                    bash -c '
+                        set +e
+                        ./venv/bin/pytest 2>&1 | tee ci-test.log
+                        TEST_EXIT_CODE=${PIPESTATUS[0]}
+                        echo $TEST_EXIT_CODE > test-exit-code.txt
+                        exit $TEST_EXIT_CODE
+                    '
                 '''
             }
         }
@@ -104,7 +110,17 @@ pipeline {
         }
 
         failure {
-            echo 'Pipeline failed.'
+            sh '''
+                if [ -f ci-test.log ]; then
+                    source venv/bin/activate
+                    python3 -m pip install -r ai-agent/requirements.txt
+                    python3 ai-agent/agent.py analyze-ci \
+                        --log-file ci-test.log \
+                        --output ai-agent/outputs/ci-failure-report.md
+                else
+                    echo "ci-test.log not found, skip AI analysis."
+                fi
+            '''
         }
     }
 }

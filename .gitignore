@@ -41,3 +41,11 @@ venv/
 # =========================
 .DS_Store
 Thumbs.db
+
+# AI Agent outputs
+ai-agent/outputs/*.md
+!ai-agent/outputs/.gitkeep
+
+# Temporary logs
+tmp/
+*.log
