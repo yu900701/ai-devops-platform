@@ -23,6 +23,6 @@ def health_check():
 def info():
     return {
         "app": "AI DevOps Platform",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "service": "FastAPI Backend"
     }
