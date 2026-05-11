@@ -105,22 +105,39 @@ pipeline {
     }
 
     post {
-        success {
-            echo 'Pipeline completed successfully.'
-        }
-
         failure {
             sh '''
+                set +e
+
                 if [ -f ci-test.log ]; then
-                    source venv/bin/activate
+                    echo "ci-test.log found, running CI Failure Analysis Agent..."
+
+                    if [ -d venv ]; then
+                        . venv/bin/activate
+                    else
+                        echo "venv not found, creating virtual environment..."
+                        python3 -m venv venv
+                        . venv/bin/activate
+                    fi
+
+                    python3 -m pip install --upgrade pip
                     python3 -m pip install -r ai-agent/requirements.txt
+
                     python3 ai-agent/agent.py analyze-ci \
                         --log-file ci-test.log \
                         --output ai-agent/outputs/ci-failure-report.md
                 else
                     echo "ci-test.log not found, skip AI analysis."
                 fi
+
+                exit 0
             '''
+
+            archiveArtifacts artifacts: 'ai-agent/outputs/ci-failure-report.md', allowEmptyArchive: true
+        }
+
+        success {
+            echo 'Pipeline completed successfully.'
         }
     }
 }
