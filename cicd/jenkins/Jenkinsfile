@@ -1,0 +1,109 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "ghcr.io/yu900701/ai-devops-app"
+        GITOPS_REPO_URL = "github.com/yu900701/ai-devops-platform-gitops.git"
+        GITOPS_DEPLOYMENT_FILE = "apps/ai-devops-app/app-deployment.yaml"
+    }
+
+    stages {
+        stage('Checkout App Repo') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install Python Dependencies') {
+            steps {
+                sh '''
+                    python3 -m pip install --upgrade pip
+                    pip3 install -r app/requirements.txt
+                '''
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh '''
+                    pytest
+                '''
+            }
+        }
+
+        stage('Set Image Tag') {
+            steps {
+                sh '''
+                    git rev-parse --short HEAD > image-tag.txt
+                    cat image-tag.txt
+                '''
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                    IMAGE_TAG=$(cat image-tag.txt)
+                    docker build -f docker/app.Dockerfile -t $IMAGE_NAME:$IMAGE_TAG .
+                '''
+            }
+        }
+
+        stage('Push Docker Image to GHCR') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'ghcr-credential',
+                    usernameVariable: 'GHCR_USERNAME',
+                    passwordVariable: 'GHCR_TOKEN'
+                )]) {
+                    sh '''
+                        IMAGE_TAG=$(cat image-tag.txt)
+
+                        echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+
+                        docker push $IMAGE_NAME:$IMAGE_TAG
+                    '''
+                }
+            }
+        }
+
+        stage('Update GitOps Repo') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'gitops-repo-credential',
+                    usernameVariable: 'GIT_USERNAME',
+                    passwordVariable: 'GIT_TOKEN'
+                )]) {
+                    sh '''
+                        IMAGE_TAG=$(cat image-tag.txt)
+
+                        rm -rf gitops-repo
+
+                        git clone https://$GIT_USERNAME:$GIT_TOKEN@$GITOPS_REPO_URL gitops-repo
+
+                        cd gitops-repo
+
+                        sed -i "s|image: ghcr.io/yu900701/ai-devops-app:.*|image: ghcr.io/yu900701/ai-devops-app:$IMAGE_TAG|g" $GITOPS_DEPLOYMENT_FILE
+
+                        git config user.name "yu900701"
+                        git config user.email "kd123456525@gmail.com"
+
+                        git add $GITOPS_DEPLOYMENT_FILE
+                        git commit -m "update ai-devops-app image to $IMAGE_TAG" || echo "No changes to commit"
+                        git push
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+
+        failure {
+            echo 'Pipeline failed.'
+        }
+    }
+}
