@@ -4,7 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME = "ghcr.io/yu900701/ai-devops-app"
         GITOPS_REPO_URL = "github.com/yu900701/ai-devops-platform-gitops.git"
-        GITOPS_DEPLOYMENT_FILE = "apps/ai-devops-app/app-deployment.yaml"
+        GITOPS_DEPLOYMENT_FILE = "apps/app-deployment.yaml"
     }
 
     stages {
